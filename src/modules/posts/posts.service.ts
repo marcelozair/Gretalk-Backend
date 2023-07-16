@@ -18,6 +18,11 @@ export class PostsService {
     return createdPost.save();
   }
 
+  async save(): Promise<void> {
+    console.log('this is saving post');
+    return;
+  }
+
   async getMostPopular({
     page = 1,
     size = 5,

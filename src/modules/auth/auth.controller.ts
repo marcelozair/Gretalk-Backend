@@ -1,12 +1,21 @@
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
 } from '@nestjs/common/exceptions';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { CREATED, OK } from 'src/constants/httpStatus';
-import { Body, Controller, Inject, Post, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Post,
+  Res,
+} from '@nestjs/common';
 import { CredentialsDto, RegisterUserDto } from './dto/register-user.dto';
 
 @Controller('auth')
@@ -18,12 +27,14 @@ export class AuthController {
   private readonly userService: UsersService;
 
   @Post('register')
+  @HttpCode(HttpStatus.CREATED)
   async register(@Res() res: Response, @Body() registerUser: RegisterUserDto) {
     const { password, email } = registerUser;
-
     const userExist = await this.userService.findByEmail(email);
 
-    if (userExist) return new ForbiddenException('User already exist');
+    if (userExist) {
+      throw new HttpException('User already exist', HttpStatus.BAD_REQUEST);
+    }
 
     const hashPassword = await this.authService.encryptPassowrd(password);
 
@@ -38,13 +49,13 @@ export class AuthController {
 
     return res.status(CREATED).json({
       user: {
-        id: userExist.id,
+        id: user.id,
         username: user.username,
         email: user.email,
         bio: user.bio,
         picture: user.picture,
         authorization,
-      }
+      },
     });
   }
 
@@ -61,7 +72,9 @@ export class AuthController {
       userExist.password,
     );
 
-    if (!passwordIsValid) return new BadRequestException('Password is invalid');
+    if (!passwordIsValid) {
+      throw new HttpException('Password is invalid', HttpStatus.BAD_REQUEST);
+    }
 
     const { authorization } = await this.authService.generateToken(
       userExist.id,
@@ -75,7 +88,7 @@ export class AuthController {
         bio: userExist.bio,
         picture: userExist.picture,
         authorization,
-      }
+      },
     });
   }
 }
