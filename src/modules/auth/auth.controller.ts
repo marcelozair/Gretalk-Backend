@@ -1,13 +1,4 @@
 import {
-  BadRequestException,
-  ForbiddenException,
-  HttpException,
-} from '@nestjs/common/exceptions';
-import { Response } from 'express';
-import { AuthService } from './auth.service';
-import { UsersService } from '../users/users.service';
-import { CREATED, OK } from 'src/constants/httpStatus';
-import {
   Body,
   Controller,
   HttpCode,
@@ -16,6 +7,15 @@ import {
   Post,
   Res,
 } from '@nestjs/common';
+import {
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common/exceptions';
+import { Response } from 'express';
+
+import { AuthService } from './auth.service';
+import { UsersService } from '../users/users.service';
+import { CREATED, OK } from 'src/constants/httpStatus';
 import { CredentialsDto, RegisterUserDto } from './dto/register-user.dto';
 
 @Controller('auth')
@@ -26,14 +26,14 @@ export class AuthController {
   @Inject(UsersService)
   private readonly userService: UsersService;
 
-  @Post('register')
+  @Post('sign-up')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Res() res: Response, @Body() registerUser: RegisterUserDto) {
+  async signUp(@Res() res: Response, @Body() registerUser: RegisterUserDto) {
     const { password, email } = registerUser;
     const userExist = await this.userService.findByEmail(email);
 
     if (userExist) {
-      throw new HttpException('User already exist', HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('User already exist');
     }
 
     const hashPassword = await this.authService.encryptPassowrd(password);
@@ -56,6 +56,9 @@ export class AuthController {
         picture: user.picture,
         authorization,
       },
+      authorization,
+      token_type: 'Bearer',
+      message: 'User created succesful',
     });
   }
 
@@ -63,9 +66,9 @@ export class AuthController {
   async signIn(@Res() res: Response, @Body() credencials: CredentialsDto) {
     const { email, password } = credencials;
 
-    const userExist = await this.userService.findByEmail(email);
+    const userExist = await this.userService.findByEmailWithPassword(email);
 
-    if (!userExist) return new BadRequestException('User do not found');
+    if (!userExist) return new NotFoundException('User do not found');
 
     const passwordIsValid = await this.authService.comparePassword(
       password,
@@ -73,7 +76,7 @@ export class AuthController {
     );
 
     if (!passwordIsValid) {
-      throw new HttpException('Password is invalid', HttpStatus.BAD_REQUEST);
+      throw new BadRequestException('Password is invalid');
     }
 
     const { authorization } = await this.authService.generateToken(
@@ -87,8 +90,10 @@ export class AuthController {
         email: userExist.email,
         bio: userExist.bio,
         picture: userExist.picture,
-        authorization,
       },
+      authorization,
+      token_type: 'Bearer',
+      message: 'Successful sign in',
     });
   }
 }
